@@ -1,0 +1,64 @@
+service: appointments
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  deploymentBucket:
+    name: elasticbeanstalk-us-east-1-850576544278
+  environment:
+    APPOINTMENTS_TABLE: Appointments
+    SNS_TOPIC_ARN: ${env:SNS_TOPIC_ARN}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: 
+            - "arn:aws:dynamodb:us-east-1:850576544278:table/Appointments"
+            - "arn:aws:dynamodb:us-east-1:850576544278:table/Appointments/index/*"
+        - Effect: Allow
+          Action:
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+                - arn:aws:sqs:us-east-1:850576544278:sqs
+
+functions:
+  createAppointment:
+    handler: src/lambda.handler
+    events:
+      - httpApi:
+          path: /appointments
+          method: post
+
+  getAppointment:
+    handler: src/lambda.handler
+    events:
+      - httpApi:
+          path: /appointments/{insuredId}
+          method: get
+
+  swaggerDocs:
+    handler: src/lambda.handler
+    events:
+      - httpApi:
+          path: /api/docs/{proxy+}
+          method: any
+
+  processAppointmentFromSqs:
+    handler: src/infrastructure/presentation/sqs/processAppointmentFromSqs.handler
+    events:
+      - sqs:
+          arn:aws:sqs:us-east-1:850576544278:sqs
+
+plugins:
+  - serverless-offline
